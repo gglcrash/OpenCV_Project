@@ -1,30 +1,20 @@
-#include <QtCore/QCoreApplication>
-#include <stdint.h>
-#include <limits>
 #include "common.h"
+#include "main.h"
 
-void embedWmToFFT(const QString fileCont, const QString fileWm, QString fileRes);
-void extractWmFromFFT(const QString fileCont);
-cv::Mat extractWmFromFFT2(cv::Mat blueSrc);
-
-void embedWmToDCT(const QString fileCont, const QString fileWm, QString fileRes);
-void extractWmFromDCT(const QString fileCont);
-
-void rotateImg(const QString fileCont);
-void testImageRotation(const QString fileCont);
-double getAngleValue(cv::Mat src, cv::Mat idealSign);
+std::ofstream myfile;
 
 int main(int argc, char *argv[])
 {
-QCoreApplication a(argc, argv);
-QString strCont = "D:\\opencvimg\\Lenna.png";
-QString strSign = "D:\\opencvimg\\sign00003.png";
-QString strRes = "D:\\opencvimg\\imgDst.png";
+    QCoreApplication a(argc, argv);
+    QString strCont = "D:\\opencvimg\\Lenna.png";
+    QString strSign = "D:\\opencvimg\\sign00003.png";
+    QString strRes = "D:\\opencvimg\\imgDst.png";
 
- //embedWmToFFT(strCont, strSign, strRes);
- //extractWmFromFFT(strRes);
-testImageRotation(strRes);
-//rotateImg(strRes);
+    myfile.open ("D:\\Diplomchik\\fft_wm\\example.txt");
+    //embedWmToFFT(strCont, strSign, strRes);
+    //extractWmFromFFT(strRes);
+    testImageRotation(strRes);
+    //rotateImg(strRes);
 
     if(argc == 4)
     {
@@ -115,7 +105,7 @@ cv::Mat extractWmFromFFT2(cv::Mat blueSrc)
     imgLogMag.zeros(imgMag.rows, imgMag.cols, CV_32F);
     imgLogMag = (imgMag+1);
     cv::log(imgLogMag, imgLogMag);
-   // imgLogMag.convertTo(imgLogMag,-1,10,0);
+    // imgLogMag.convertTo(imgLogMag,-1,10,0);
 
     cv::Rect myROI(0.78125*imgLogMag.cols, 0.78125*imgLogMag.rows, 0.21875*imgLogMag.cols, 0.21875*imgLogMag.rows);
     cv::Mat croppedImage = imgLogMag(myROI).clone();
@@ -123,9 +113,9 @@ cv::Mat extractWmFromFFT2(cv::Mat blueSrc)
     cv::normalize(croppedImage, croppedImage, 0, 255, cv::NORM_MINMAX);
 
     cv::threshold(croppedImage, croppedImage, 63, 255,CV_THRESH_BINARY);
-   cv::imwrite("D:\\opencvimg\\forCrop3.png", croppedImage);
-   croppedImage.convertTo(croppedImage,CV_8U);
-   return croppedImage;
+    cv::imwrite("D:\\opencvimg\\forCrop3.png", croppedImage);
+    croppedImage.convertTo(croppedImage,CV_8U);
+    return croppedImage;
 
 }
 
@@ -202,7 +192,7 @@ void rotateImg(const QString fileCont)
     extractWmFromFFT2(dst);
 
 
-   // cv::imshow("imgMagRes", dst);
+    // cv::imshow("imgMagRes", dst);
 }
 // QString fileCont="D:\\opencvimg\\forCrop2.png";
 //croppedImage = cv::imread(fileCont.toStdString().c_str(), 0);
@@ -211,53 +201,71 @@ void testImageRotation(const QString fileCont){
     QString idealMat="D:\\opencvimg\\forCompare.png";
     cv::Mat idealSignMat = cv::imread(idealMat.toStdString().c_str(), 0);
     cv::threshold(idealSignMat, idealSignMat, 127, 255,CV_THRESH_BINARY);
-
+    int successResult = 0;
     cv::Mat src = cv::imread(fileCont.toStdString().c_str(), 1),firstRotatedMat;
     std::vector <cv::Mat> imgSrcCh;
     cv::split(src, imgSrcCh);
     src = imgSrcCh[2];
     //simulate first rotate
-    double firstRotationAngle = 150;
-    cv::Point2f pc(src.cols/2., src.rows/2.);
-    cv::Mat r = cv::getRotationMatrix2D(pc, firstRotationAngle, 1.0);
-    cv::warpAffine(src, firstRotatedMat, r, src.size());
+    for(int firstRotationAngle=0;firstRotationAngle<361;firstRotationAngle++)
+    {
+     //   double firstRotationAngle = 150;
+        cv::Point2f pc(src.cols/2., src.rows/2.);
+        cv::Mat r = cv::getRotationMatrix2D(pc, firstRotationAngle, 1.0);
+        cv::warpAffine(src, firstRotatedMat, r, src.size());
 
-    double rotationAngleResult = getAngleValue(firstRotatedMat,idealSignMat);
-
-    std::cout <<"percentage "<< rotationAngleResult;
+        int rotationAngleResult = getAngleValue(firstRotatedMat,idealSignMat);
+        if (firstRotationAngle==rotationAngleResult){
+            successResult++;
+            std::cout <<"For "<< firstRotationAngle<< " degree result is OK! \n";
+            myfile <<"For "<< firstRotationAngle<< " degree result is OK! \n";
+        } else {
+            std::cout <<"For "<< firstRotationAngle<< " degree result is WRONG! \n";
+            myfile <<"For "<< firstRotationAngle<< " degree result is WRONG! \n";
+        }
+    }
+    std::cout <<"Percentage of true decision is "<< successResult/360<<"\n";
+    myfile <<"Percentage of true decision is "<< successResult/360<<"\n";
 }
 
-double getAngleValue(cv::Mat src, cv::Mat idealSign){
+int getAngleValue(cv::Mat src, cv::Mat idealSign){
     cv::Mat dst;
     cv::Point2f pc(src.cols/2., src.rows/2.);
-    //for 0 to 360, rotate and get wm
-    //{
-    cv::Mat r = cv::getRotationMatrix2D(pc, -150, 1.0);
-    cv::warpAffine(src, dst, r, src.size());
+    int resultAngle=1000;
 
-    dst = extractWmFromFFT2(dst);
+    for (int angle = 0; angle<361;angle++)
+    {
 
-    //compare dst and idealSign
-    double allPixels = dst.rows*dst.cols;
-   double samePixels = 0;
-    double percentageResult = 0;
+        cv::Mat r = cv::getRotationMatrix2D(pc, -angle, 1.0);
+        cv::warpAffine(src, dst, r, src.size());
 
-    cv::imshow("lala",dst);
-    cv::imshow("ideal",idealSign);
-    if(idealSign.rows==dst.rows && idealSign.cols==dst.cols){
-        for(int x = 0; x<dst.cols;x++){
-            for(int y = 0; y<dst.rows;y++){
-               if(dst.at<char>(x,y)==idealSign.at<char>(x,y)){
-                    samePixels++;
+        dst = extractWmFromFFT2(dst);
+
+        //compare dst and idealSign
+        double allPixels = dst.rows*dst.cols;
+        double samePixels = 0;
+        double percentageResult = 0;
+
+        // cv::imshow("lala",dst);
+        // cv::imshow("ideal",idealSign);
+        if(idealSign.rows==dst.rows && idealSign.cols==dst.cols){
+            for(int x = 0; x<dst.cols;x++){
+                for(int y = 0; y<dst.rows;y++){
+                    if(dst.at<char>(x,y)==idealSign.at<char>(x,y)){
+                        samePixels++;
+                    }
                 }
             }
+            percentageResult = samePixels/allPixels;
+    //        std::cout<<"same pixels "<<samePixels<<"\n";
         }
-        percentageResult = samePixels/allPixels;
-        std::cout<<"same pixels "<<samePixels<<"\n";
+        double compareValue = 0.90;
+        if(percentageResult>compareValue){
+            std::cout <<"Answer is "<< angle<< " degree and "<<100*percentageResult<<" percent. ";
+            myfile <<"Answer is "<< angle<< " degree and "<<100*percentageResult<<" percent. ";
+            resultAngle=angle;
+            break;
+        }
     }
-    return percentageResult;
-    // if > 95%
-    // return angle
-    //}
-    //return 1000;
+    return resultAngle;
 }

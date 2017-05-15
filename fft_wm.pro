@@ -12,7 +12,8 @@ QT       += gui
 CONFIG   += console
 CONFIG   -= app_bundle
 
-HEADERS = src\common.h
+HEADERS = src\common.h \
+    src/main.h
 
 SOURCES = src\main.cpp \
           src\common.cpp
@@ -27,4 +28,5 @@ CONFIG(debug, debug|release) {
 } else {
     LIBS += -Llib #-...
 }
+
 
